@@ -19,6 +19,35 @@ pub struct OpcodeGasInspector {
     last_opcode_gas_remaining: Option<(OpCode, u64)>,
 }
 
+#[cfg(feature = "serde")]
+impl serde::Serialize for OpcodeGasInspector {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let mut state = serializer.serialize_struct("OpcodeGasInspector", 3)?;
+        state.serialize_field(
+            "opcode_counts",
+            &self
+                .opcode_counts
+                .iter()
+                .map(|(code, key)| (code.get(), key))
+                .collect::<HashMap<_, _>>(),
+        )?;
+        state.serialize_field(
+            "opcode_gas",
+            &self.opcode_gas.iter().map(|(code, key)| (code.get(), key)).collect::<HashMap<_, _>>(),
+        )?;
+        state.serialize_field(
+            "last_opcode_gas_remaining",
+            &self.last_opcode_gas_remaining.map(|(code, key)| (code.get(), key)),
+        )?;
+        state.end()
+    }
+}
+
 impl OpcodeGasInspector {
     /// Creates a new instance of the inspector.
     pub fn new() -> Self {

@@ -8,6 +8,7 @@ use std::collections::HashSet;
 
 /// 256 bits each marking whether an opcode should be included into steps trace or not.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[must_use]
 pub struct OpcodeFilter(U256);
 
@@ -54,6 +55,8 @@ impl OpcodeFilter {
 /// Use [TracingInspectorConfig::default_parity] or [TracingInspectorConfig::default_geth] to get
 /// the default configs for specific styles of traces.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct TracingInspectorConfig {
     /// Whether to record every individual opcode level step.
     pub record_steps: bool,
@@ -319,6 +322,7 @@ impl TracingInspectorConfig {
 
 /// How much of the stack to record. Nothing, just the items pushed, or the full stack
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum StackSnapshotType {
     /// Don't record stack snapshots
     #[default]

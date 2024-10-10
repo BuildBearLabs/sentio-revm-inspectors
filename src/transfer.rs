@@ -105,6 +105,7 @@ where
 
 /// A transfer operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct TransferOperation {
     /// Source of the transfer call.
     pub kind: TransferKind,
@@ -118,6 +119,7 @@ pub struct TransferOperation {
 
 /// The kind of transfer operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum TransferKind {
     /// A non zero value transfer CALL
     Call,
