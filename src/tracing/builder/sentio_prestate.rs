@@ -1,26 +1,26 @@
 //! Sentio trace builder
 
-use crate::tracing::{
-    types::{CallTraceNode},
-};
+use crate::tracing::types::CallTraceNode;
+use crate::tracing::utils::load_account_code;
 use alloy_primitives::{keccak256, Address, B256, B512};
-use revm::{db::DatabaseRef};
+use alloy_rpc_types::trace::geth::sentio_prestate::{AccountState, State};
+use alloy_rpc_types::trace::geth::AccountChangeKind;
+use revm::db::DatabaseRef;
+use revm::interpreter::OpCode;
+use revm::primitives::ResultAndState;
 use std::collections::{btree_map, BTreeMap, HashMap};
 use std::default::Default;
 use std::fmt::Debug;
-use alloy_rpc_types::trace::geth::{AccountChangeKind};
-use alloy_rpc_types::trace::geth::sentio_prestate::{AccountState, State};
-use revm::interpreter::OpCode;
-use revm::primitives::ResultAndState;
-use crate::tracing::utils::{load_account_code};
 
-pub use alloy_rpc_types::trace::geth::sentio_prestate::{SentioPrestateResult, SentioPrestateTracerConfig};
+pub use alloy_rpc_types::trace::geth::sentio_prestate::{
+    SentioPrestateResult, SentioPrestateTracerConfig,
+};
 
 #[derive(Clone, Debug)]
 pub struct SentioPrestateTraceBuilder {
     /// Recorded trace nodes.
     nodes: Vec<CallTraceNode>,
-    prestate_config: SentioPrestateTracerConfig
+    prestate_config: SentioPrestateTracerConfig,
 }
 
 struct AdditionalInfo {
@@ -46,16 +46,14 @@ impl SentioPrestateTraceBuilder {
             for (addr, changed_acc) in account_diffs {
                 let db_acc = db.basic_ref(addr)?.unwrap_or_default();
                 let code = load_account_code(&db, &db_acc);
-                let mut acc_state = AccountState::from_account_info(db_acc.nonce, db_acc.balance, code);
+                let mut acc_state =
+                    AccountState::from_account_info(db_acc.nonce, db_acc.balance, code);
                 for (key, slot) in changed_acc.storage.iter() {
                     acc_state.storage.insert((*key).into(), slot.original_value.into());
                 }
                 pre.insert(addr, acc_state);
             }
-            SentioPrestateResult {
-                pre,
-                post: None,
-            }
+            SentioPrestateResult { pre, post: None }
         } else {
             let mut pre = State::default();
             let mut post = State::default();
@@ -65,7 +63,8 @@ impl SentioPrestateTraceBuilder {
 
                 let pre_code = load_account_code(&db, &db_acc);
 
-                let mut pre_state = AccountState::from_account_info(db_acc.nonce, db_acc.balance, pre_code);
+                let mut pre_state =
+                    AccountState::from_account_info(db_acc.nonce, db_acc.balance, pre_code);
                 let mut post_state = AccountState::from_account_info(
                     changed_acc.info.nonce,
                     changed_acc.info.balance,
@@ -113,10 +112,7 @@ impl SentioPrestateTraceBuilder {
             }
 
             self.diff_traces(&mut pre, &mut post, account_change_kinds);
-            SentioPrestateResult {
-                pre,
-                post: Some(post),
-            }
+            SentioPrestateResult { pre, post: Some(post) }
         };
         for node in &self.nodes {
             let caller = node.trace.address;
@@ -142,21 +138,26 @@ impl SentioPrestateTraceBuilder {
                             entry.mapping_keys.insert(B512::from_slice(raw_key), hash_of_key);
 
                             let base_slot = &raw_key[32..];
-                            entry.code_address_by_slot.insert(B256::from_slice(base_slot), code_address);
+                            entry
+                                .code_address_by_slot
+                                .insert(B256::from_slice(base_slot), code_address);
                             entry.code_address_by_slot.insert(hash_of_key, code_address);
                         }
                     }
-                    _ => { }
+                    _ => {}
                 }
             }
         }
         if let Some(post) = &mut ret.post {
             for (address, state) in &ret.pre {
                 let Some(post_state) = post.get_mut(address) else {
-                    post.insert(*address, AccountState {
-                        mapping_keys: state.mapping_keys.clone(),
-                        ..AccountState::default()
-                    });
+                    post.insert(
+                        *address,
+                        AccountState {
+                            mapping_keys: state.mapping_keys.clone(),
+                            ..AccountState::default()
+                        },
+                    );
                     continue;
                 };
                 post_state.mapping_keys = state.mapping_keys.clone();

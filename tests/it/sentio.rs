@@ -3,11 +3,15 @@
 use crate::utils::inspect;
 use alloy_primitives::{hex, Address, Bytes, U256};
 use alloy_rpc_types::trace::geth::sentio::{FunctionInfo, SentioTracerConfig};
-use revm::{db::{CacheDB, EmptyDB}, primitives::{
-    BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, ExecutionResult, HandlerCfg,
-    Output, SpecId, TransactTo, TxEnv,
-}, DatabaseCommit};
 use revm::primitives::AccountInfo;
+use revm::{
+    db::{CacheDB, EmptyDB},
+    primitives::{
+        BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, ExecutionResult, HandlerCfg,
+        Output, SpecId, TransactTo, TxEnv,
+    },
+    DatabaseCommit,
+};
 use revm_inspectors::tracing::{SentioTraceBuilder, TracingInspector, TracingInspectorConfig};
 
 #[test]
@@ -76,8 +80,12 @@ fn test_sentio_tracer_logs() {
     };
     db.commit(res.state);
 
-    let mut insp =
-        TracingInspector::new(TracingInspectorConfig::default_geth().set_record_logs(true).set_memory_snapshots(true).set_immediate_bytes(true));
+    let mut insp = TracingInspector::new(
+        TracingInspectorConfig::default_geth()
+            .set_record_logs(true)
+            .set_memory_snapshots(true)
+            .set_immediate_bytes(true),
+    );
 
     let env = EnvWithHandlerCfg::new_with_cfg_env(
         cfg,
@@ -94,11 +102,8 @@ fn test_sentio_tracer_logs() {
     let (res, _) = inspect(&mut db, env, &mut insp).unwrap();
     assert!(res.result.is_success());
 
-
-    let sentio_tracer_config = SentioTracerConfig {
-        with_internal_calls: true,
-        ..SentioTracerConfig::default()
-    };
+    let sentio_tracer_config =
+        SentioTracerConfig { with_internal_calls: true, ..SentioTracerConfig::default() };
 
     let traces = insp.into_traces().into_nodes();
     let builder = SentioTraceBuilder::new(traces, sentio_tracer_config);
@@ -117,10 +122,10 @@ fn test_sentio_tracer_weth_transfer() {
     let user1 = Address::from(hex!("0000000000000000000000000000000000000123"));
     let user2 = Address::from(hex!("0000000000000000000000000000000000000456"));
     let mut db = CacheDB::new(EmptyDB::default());
-    db.insert_account_info(user1, AccountInfo {
-        balance: U256::from(10000000000_i64),
-        ..Default::default()
-    });
+    db.insert_account_info(
+        user1,
+        AccountInfo { balance: U256::from(10000000000_i64), ..Default::default() },
+    );
     let cfg = CfgEnvWithHandlerCfg::new(CfgEnv::default(), HandlerCfg::new(SpecId::LONDON));
 
     // Create contract
@@ -136,7 +141,9 @@ fn test_sentio_tracer_weth_transfer() {
             ..Default::default()
         },
     );
-    let mut insp = TracingInspector::new(TracingInspectorConfig::default_geth().set_record_logs(true).set_memory_snapshots(true));
+    let mut insp = TracingInspector::new(
+        TracingInspectorConfig::default_geth().set_record_logs(true).set_memory_snapshots(true),
+    );
     let (res, _) = inspect(&mut db, env, &mut insp).unwrap();
     let contract_addr = match res.result {
         ExecutionResult::Success { output, .. } => match output {
@@ -168,7 +175,9 @@ fn test_sentio_tracer_weth_transfer() {
             ..Default::default()
         },
     );
-    let mut insp = TracingInspector::new(TracingInspectorConfig::default_geth().set_record_logs(true).set_memory_snapshots(true));
+    let mut insp = TracingInspector::new(
+        TracingInspectorConfig::default_geth().set_record_logs(true).set_memory_snapshots(true),
+    );
     let (res, _) = inspect(&mut db, env, &mut insp).unwrap();
     assert!(res.result.is_success());
     db.commit(res.state);
@@ -193,7 +202,9 @@ fn test_sentio_tracer_weth_transfer() {
             ..Default::default()
         },
     );
-    let mut insp = TracingInspector::new(TracingInspectorConfig::default_geth().set_record_logs(true).set_memory_snapshots(true));
+    let mut insp = TracingInspector::new(
+        TracingInspectorConfig::default_geth().set_record_logs(true).set_memory_snapshots(true),
+    );
     let (res, _) = inspect(&mut db, env, &mut insp).unwrap();
     assert!(res.result.is_success());
     db.commit(res.state);

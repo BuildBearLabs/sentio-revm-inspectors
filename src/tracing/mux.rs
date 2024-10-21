@@ -254,7 +254,7 @@ impl DelegatingInspector {
                 Ok(DelegatingInspector::Mux(MuxInspector::try_from_config(config)?))
             }
             GethDebugBuiltInTracerType::SentioTracer => todo!(),
-            GethDebugBuiltInTracerType::SentioPrestateTracer => todo!()
+            GethDebugBuiltInTracerType::SentioPrestateTracer => todo!(),
         };
 
         inspector.map(|inspector| (tracer_type, inspector))

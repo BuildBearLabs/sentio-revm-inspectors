@@ -1,16 +1,14 @@
 //! Sentio trace builder
 
-use crate::tracing::{
-    types::{CallTraceNode},
-};
-use alloy_primitives::{Address, U256};
-use std::collections::{HashMap, HashSet};
-use std::fmt::Debug;
-use alloy_rpc_types::trace::geth::sentio::{FunctionInfo, SentioReceipt};
-use revm::interpreter::OpCode;
-use log::warn;
+use crate::tracing::types::CallTraceNode;
 use crate::tracing::types::{CallTraceStep, TraceMemberOrder};
 use crate::tracing::utils::maybe_revert_reason;
+use alloy_primitives::{Address, U256};
+use alloy_rpc_types::trace::geth::sentio::{FunctionInfo, SentioReceipt};
+use log::warn;
+use revm::interpreter::OpCode;
+use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 
 pub use alloy_rpc_types::trace::geth::sentio::{SentioTrace, SentioTracerConfig};
 
@@ -45,10 +43,15 @@ pub struct InternalFunctionInfo {
 impl SentioTraceBuilder {
     pub fn new(nodes: Vec<CallTraceNode>, config: SentioTracerConfig) -> Self {
         let tracer_config = config.clone();
-        let mut function_map: HashMap<Address, HashMap<usize, InternalFunctionInfo>> = HashMap::new();
+        let mut function_map: HashMap<Address, HashMap<usize, InternalFunctionInfo>> =
+            HashMap::new();
         for (address, function_infos) in config.functions.into_iter() {
-            let function_by_pc = function_infos.into_iter().map(
-                |function_info| (function_info.pc, InternalFunctionInfo { function_info, address })).collect();
+            let function_by_pc = function_infos
+                .into_iter()
+                .map(|function_info| {
+                    (function_info.pc, InternalFunctionInfo { function_info, address })
+                })
+                .collect();
             function_map.insert(address, function_by_pc);
         }
         let mut call_map: HashMap<Address, HashSet<usize>> = HashMap::new();
@@ -63,7 +66,11 @@ impl SentioTraceBuilder {
         SentioTrace {
             receipt,
             gas_used: U256::from(gas_used),
-            tracer_config: if self.tracer_config.debug { Some(self.tracer_config.clone()) } else {  None },
+            tracer_config: if self.tracer_config.debug {
+                Some(self.tracer_config.clone())
+            } else {
+                None
+            },
             ..self.transform_call(&self.nodes[0], 0, 0).trace
         }
     }
@@ -82,7 +89,12 @@ impl SentioTraceBuilder {
         false
     }
 
-    fn transform_call(&self, node: &CallTraceNode, inst_start_idx: usize, call_pc: usize) -> InternalSentioTrace {
+    fn transform_call(
+        &self,
+        node: &CallTraceNode,
+        inst_start_idx: usize,
+        call_pc: usize,
+    ) -> InternalSentioTrace {
         let trace = &node.trace;
         let root = InternalSentioTrace {
             trace: SentioTrace {
@@ -122,7 +134,10 @@ impl SentioTraceBuilder {
         let mut frames: Vec<InternalSentioTrace> = vec![root];
 
         let mut entry_pc = HashSet::<usize>::new();
-        if !trace.kind.is_any_create() && !trace.maybe_precompile.unwrap_or(false) && trace.data.len() >= 4 {
+        if !trace.kind.is_any_create()
+            && !trace.maybe_precompile.unwrap_or(false)
+            && trace.data.len() >= 4
+        {
             let sig_hash = trace.data.slice(0..4);
             if let Some(functions) = self.function_map.get(&trace.address) {
                 for (pc, function) in functions {
@@ -137,7 +152,11 @@ impl SentioTraceBuilder {
         for i in &node.ordering {
             match i {
                 TraceMemberOrder::Call(child_idx) => {
-                    let child_trace = self.transform_call(&self.nodes[node.children[*child_idx]], next_inst_idx, last_pc);
+                    let child_trace = self.transform_call(
+                        &self.nodes[node.children[*child_idx]],
+                        next_inst_idx,
+                        last_pc,
+                    );
                     next_inst_idx = child_trace.trace.end_index.clone();
                     frames.last_mut().unwrap().trace.traces.push(Box::from(child_trace.trace));
                 }
@@ -174,23 +193,46 @@ impl SentioTraceBuilder {
                                     }
                                     for _ in 0..frames_to_pop {
                                         let mut frame = frames.pop().unwrap();
-                                        let InternalFunctionInfo { function_info: function, address } = &frame.function.unwrap();
+                                        let InternalFunctionInfo {
+                                            function_info: function,
+                                            address,
+                                        } = &frame.function.unwrap();
                                         let stack = step.stack.as_ref().unwrap();
                                         let output_enough = function.output_size <= stack.len();
                                         if !output_enough {
                                             warn!("stack size not enough, stack: {}, output_size: {}, address: {}, function: {}, pc: {}", stack.len(), function.output_size, address, function.name, last_pc);
                                             if step.is_error() {
-                                                warn!("stack size not enough has error, err: {}", step.as_error().unwrap())
+                                                warn!(
+                                                    "stack size not enough has error, err: {}",
+                                                    step.as_error().unwrap()
+                                                )
                                             }
                                         }
                                         frame.trace = SentioTrace {
                                             end_index: next_inst_idx - 1,
-                                            gas_used: frame.trace.gas - U256::from(step.gas_remaining),
-                                            output_stack: if output_enough { Some(stack[stack.len() - function.output_size..].to_vec()) } else { None },
-                                            output_memory: if function.output_memory { Some(step.memory.clone().unwrap().into_bytes()) } else { None },
+                                            gas_used: frame.trace.gas
+                                                - U256::from(step.gas_remaining),
+                                            output_stack: if output_enough {
+                                                Some(
+                                                    stack[stack.len() - function.output_size..]
+                                                        .to_vec(),
+                                                )
+                                            } else {
+                                                None
+                                            },
+                                            output_memory: if function.output_memory {
+                                                Some(step.memory.clone().unwrap().into_bytes())
+                                            } else {
+                                                None
+                                            },
                                             ..frame.trace
                                         };
-                                        frames.last_mut().unwrap().trace.traces.push(Box::from(frame.trace));
+                                        frames
+                                            .last_mut()
+                                            .unwrap()
+                                            .trace
+                                            .traces
+                                            .push(Box::from(frame.trace));
                                     }
                                     is_exit = true;
                                     break;
@@ -204,7 +246,9 @@ impl SentioTraceBuilder {
                             if *step_idx == 0 {
                                 continue;
                             }
-                            let Some(InternalFunctionInfo { function_info: function, address }) = self.get_function_info(&step.contract, &step.pc) else {
+                            let Some(InternalFunctionInfo { function_info: function, address }) =
+                                self.get_function_info(&step.contract, &step.pc)
+                            else {
                                 continue;
                             };
 
@@ -223,10 +267,14 @@ impl SentioTraceBuilder {
                             if !input_enough {
                                 warn!("stack size not enough, stack: {}, input_size: {}, address: {}, function: {}, pc: {}", stack.len(), function.input_size, address, function.name, last_pc);
                                 if step.is_error() {
-                                    warn!("stack size not enough has error, err: {}", step.as_error().unwrap())
+                                    warn!(
+                                        "stack size not enough has error, err: {}",
+                                        step.as_error().unwrap()
+                                    )
                                 }
                             }
-                            let Some(exit_pc) = stack.get(stack.len() - function.input_size - 1) else {
+                            let Some(exit_pc) = stack.get(stack.len() - function.input_size - 1)
+                            else {
                                 warn!("function entry stack not enough");
                                 continue;
                             };
@@ -240,13 +288,28 @@ impl SentioTraceBuilder {
                                     from: Some(step.contract),
                                     to: Some(step.contract),
                                     code_address: Some(step.contract),
-                                    input_stack: if input_enough { Some(stack[stack.len() - function.input_size..].to_vec()) } else { None },
-                                    name: if self.tracer_config.debug { Some(function.name.clone()) } else { None },
-                                    input_memory: if function.input_memory { Some(step.memory.clone().unwrap().into_bytes()) } else { None },
+                                    input_stack: if input_enough {
+                                        Some(stack[stack.len() - function.input_size..].to_vec())
+                                    } else {
+                                        None
+                                    },
+                                    name: if self.tracer_config.debug {
+                                        Some(function.name.clone())
+                                    } else {
+                                        None
+                                    },
+                                    input_memory: if function.input_memory {
+                                        Some(step.memory.clone().unwrap().into_bytes())
+                                    } else {
+                                        None
+                                    },
                                     ..Default::default()
                                 },
                                 exit_pc: Some(exit_pc.to::<usize>()),
-                                function: Some(InternalFunctionInfo { function_info: function.clone(), address: address.clone() }),
+                                function: Some(InternalFunctionInfo {
+                                    function_info: function.clone(),
+                                    address: address.clone(),
+                                }),
                             };
                             frames.push(frame);
                         }
@@ -254,7 +317,9 @@ impl SentioTraceBuilder {
                             let stack = step.stack.as_ref().unwrap();
                             let memory = step.memory.as_ref().unwrap();
                             let [size, offset] = stack.last_chunk::<2>().unwrap();
-                            let output = memory.as_bytes().slice(offset.to::<usize>()..(offset + size).to::<usize>());
+                            let output = memory
+                                .as_bytes()
+                                .slice(offset.to::<usize>()..(offset + size).to::<usize>());
                             let frame = SentioTrace {
                                 typ: OpCode::REVERT.to_string(),
                                 pc: last_pc,
@@ -288,7 +353,9 @@ impl SentioTraceBuilder {
                         frames.last_mut().unwrap().trace.traces.push(Box::from(frame.trace));
                         continue;
                     };
-                    let (OpCode::LOG0 | OpCode::LOG1 | OpCode::LOG2 | OpCode::LOG3 | OpCode::LOG4) = step.op else {
+                    let (OpCode::LOG0 | OpCode::LOG1 | OpCode::LOG2 | OpCode::LOG3 | OpCode::LOG4) =
+                        step.op
+                    else {
                         panic!("log without log op");
                     };
                     let frame = InternalSentioTrace {
